@@ -2,22 +2,27 @@ from urllib import request, response
 import requests
 import json
 from datetime import datetime
-import sqlite3
 import psycopg2
 
-# sqlite3 connection & cursor
-sqlite3 = sqlite3.connect('crypto_db.db')
-sqlite3_cursor = sqlite3.cursor()
-
 # postgres connection & cursor
-postgres = psycopg2.connect(
+postgres_conn = psycopg2.connect(
     host = 'localhost',
     database = 'crypto_rates',
     user = 'postgres',
     password = 'postgres',
     port = '5432'
-)
-postgres_cursor = postgres.cursor()
+    )
+postgres_cursor = postgres_conn.cursor()
+
+# heroku connection and cursor
+heroku_conn = psycopg2.connect(
+    host = 'ec2-35-170-146-54.compute-1.amazonaws.com',
+    database = 'dd549hlvu4r6d',
+    user = 'gzbsduawjbecah',
+    password = '441d31fb8bd2356e7cc62255b242ecf12047de22b164625673f3e269fddaa6b5',
+    port = '5432'
+    )
+heroku_cursor = heroku_conn.cursor()
 
 # Coinlayer api key
 api_key = 'b700c579f1fcbffce7764cea59eb731e'
@@ -84,25 +89,7 @@ def create_dict(live_data_json, historical_data_json, tickers):
 
     return crypto_dict
 
-# Inserts json dictionary data into sqlite database
-def insert_to_sqlite_db(live_data_json, historical_data_json, tickers):
-
-    database_delete = """DELETE FROM rates"""
-    sqlite3_cursor.execute(database_delete)
-
-    for t in tickers:
-        ticker = t
-        price = live_data_json['rates'][t]
-        all_time_high = historical_data_json['rates'][t]
-        all_time_high_date = historical_data_json['date']
-        delta = price - all_time_high
-
-        database_insert = """INSERT INTO rates (ticker, price, all_time_high, all_time_high_date, delta) VALUES (?,?,?,?,?)"""
-        sqlite3_cursor.execute(database_insert,[ticker, price, all_time_high, all_time_high_date, delta])
-        sqlite3.commit()
-
-    return
-
+# Inserts to postgres db
 def insert_to_postgres_db(live_data_json, historical_data_json, tickers):
     database_delete = "DELETE FROM rates"
     postgres_cursor.execute(database_delete)
@@ -116,24 +103,46 @@ def insert_to_postgres_db(live_data_json, historical_data_json, tickers):
 
         database_insert = """INSERT INTO rates (ticker, price, all_time_high_price, all_time_high_date, delta) VALUES (%s,%s,%s,%s,%s)"""
         postgres_cursor.execute(database_insert,[ticker, price, all_time_high, all_time_high_date, delta])
-        postgres.commit()
+        postgres_conn.commit()
+
+    return
+
+# Inserts to heroku db
+def insert_to_heroku(live_data_json, historical_data_json, tickers):
+    database_delete = "DELETE FROM rates"
+    heroku_cursor.execute(database_delete)
+    
+    for t in tickers:
+        ticker = t
+        price = live_data_json['rates'][t]
+        all_time_high = historical_data_json['rates'][t]
+        all_time_high_date = historical_data_json['date']
+        delta = price - all_time_high
+
+        database_insert = """INSERT INTO rates (ticker, price, all_time_high_price, all_time_high_date, delta) VALUES (%s,%s,%s,%s,%s)"""
+        heroku_cursor.execute(database_insert,[ticker, price, all_time_high, all_time_high_date, delta])
+        heroku_conn.commit()
+
+    return
 
 ticker_list = ['BTC']
 
-# sqlite query test
-insert_to_sqlite_db(raw_live_data, raw_historical_data, ticker_list)
-sqlite_query = sqlite3_cursor.execute("""SELECT * FROM rates""")
-print(sqlite_query.fetchall())
-
 # postgres query test
-insert_to_postgres_db(raw_live_data, raw_historical_data, ticker_list)
-postgres_cursor.execute("""SELECT * FROM rates""")
-rows = postgres_cursor.fetchall()
-print(rows)
+# insert_to_postgres_db(raw_live_data, raw_historical_data, ticker_list)
+# postgres_cursor.execute("""SELECT * FROM rates""")
+# heroku_rows = postgres_cursor.fetchall()
+# print(heroku_rows)
+
+# heroku query test
+insert_to_heroku(raw_live_data, raw_historical_data, ticker_list)
+heroku_cursor.execute("""SELECT * FROM rates""")
+heroku_rows = heroku_cursor.fetchall()
+print(heroku_rows)
 
 # btc_dict = create_dict(raw_live_data, raw_historical_data, ticker_list)
 # print(btc_dict)
 
-sqlite3.close()
 postgres_cursor.close()
-postgres.close()
+postgres_conn.close()
+heroku_cursor.close()
+heroku_conn.close()
