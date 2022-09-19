@@ -125,7 +125,7 @@ def insert_to_heroku(live_data_json, historical_data_json, tickers):
 
     return
 
-ticker_list = ['BTC']
+ticker_list = ['BTC','ETH']
 
 # postgres query test
 # insert_to_postgres_db(raw_live_data, raw_historical_data, ticker_list)
