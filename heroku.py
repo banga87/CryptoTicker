@@ -10,7 +10,7 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
-cursor.execute("""ALTER TABLE rates ADD PRIMARY KEY (ticker)""")
+# cursor.execute("""ALTER TABLE rates ADD PRIMARY KEY (ticker)""")
 
 conn.commit()
 cursor.close()
